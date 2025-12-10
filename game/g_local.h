@@ -862,6 +862,9 @@ typedef struct
 	int			helpchanged;
 
 	qboolean	spectator;			// client is a spectator
+	qboolean    canDoubleJump;       // client can double jump
+	qboolean    doubleJumped;        // client has double jumped
+
 } client_persistant_t;
 
 // client data that stays across deathmatch respawns
@@ -1080,6 +1083,8 @@ struct edict_s
 
 	edict_t		*mynoise;		// can go in client only
 	edict_t		*mynoise2;
+
+	int ClassSpeed;
 
 	int			noise_index;
 	int			noise_index2;
