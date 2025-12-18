@@ -1445,7 +1445,7 @@ void Weapon_BFG (edict_t *ent)
   * sword variable definitions, I have this here because the sword is most likely still unbalanced
   * I know this because I killed a super tank with it without taking ANY damaga
   */
-#define SWORD_NORMAL_DAMAGE 100
+#define SWORD_NORMAL_DAMAGE 5
 #define SWORD_DEATHMATCH_DAMAGE 150
 #define SWORD_KICK 500
 
@@ -1559,6 +1559,132 @@ void Weapon_Sword(edict_t* ent)
 
 	Weapon_Generic(ent, 4, 8, 52, 55, pause_frames, fire_frames, Weapon_Sword_Fire);
 }
+/*
+ * Hammer variable definitions
+ */
+
+#define HAMMER_NORMAL_DAMAGE      15
+#define HAMMER_DEATHMATCH_DAMAGE  120
+#define HAMMER_KICK               800
+#define HAMMER_RANGE              64
+#define HAMMER_STUN_TIME_MONSTER   1.2f   
+#define HAMMER_STUN_TIME_PLAYER    0.4f
+
+
+void Hammer_StunTarget(edict_t* target)
+{
+	// Monster stun
+	if (target->svflags & SVF_MONSTER)
+	{
+		target->monsterinfo.pausetime =
+			level.time + HAMMER_STUN_TIME_MONSTER;
+
+		VectorClear(target->velocity);
+
+		// Freeze animation on current frame
+		target->monsterinfo.nextframe = target->s.frame;
+		return;
+	}
+
+	// Player stun
+	if (target->client)
+	{
+		target->client->ps.pmove.pm_flags |= PMF_TIME_LAND;
+		target->client->ps.pmove.pm_time =
+			(int)(HAMMER_STUN_TIME_PLAYER * 10);
+
+		VectorScale(target->velocity, 0.25f, target->velocity);
+	}
+}
+
+void fire_hammer(edict_t* self, vec3_t start, vec3_t aimdir, int damage, int kick)
+{
+	trace_t tr;
+	vec3_t end;
+
+	VectorMA(start, HAMMER_RANGE, aimdir, end);
+
+	tr = gi.trace(start, NULL, NULL, end, self, MASK_SHOT);
+
+	if ((tr.surface) && (tr.surface->flags & SURF_SKY))
+		return;
+	if (tr.ent->takedamage)
+	{
+		T_Damage(tr.ent, self, self,
+			aimdir, tr.endpos, tr.plane.normal,
+			damage, kick, 0, MOD_HIT);
+
+		Hammer_StunTarget(tr.ent);
+	}
+
+	if (tr.fraction < 1.0)
+	{
+		if (tr.ent->takedamage)
+		{
+			T_Damage(tr.ent, self, self,
+				aimdir, tr.endpos, tr.plane.normal,
+				damage, kick, 0, MOD_HIT);
+		}
+		else
+		{
+			gi.WriteByte(svc_temp_entity);
+			gi.WriteByte(TE_GUNSHOT);
+			gi.WritePosition(tr.endpos);
+			gi.WriteDir(tr.plane.normal);
+			gi.multicast(tr.endpos, MULTICAST_PVS);
+
+			if (self->client)
+				PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+		}
+	}
+}
+void hammer_attack(edict_t* ent, vec3_t g_offset, int damage)
+{
+	vec3_t forward, right;
+	vec3_t start;
+	vec3_t offset;
+
+	if (is_quad)
+		damage *= 4;
+
+	AngleVectors(ent->client->v_angle, forward, right, NULL);
+
+	// Slightly more forward reach than sword
+	VectorSet(offset, 28, 8, ent->viewheight - 8);
+	VectorAdd(offset, g_offset, offset);
+
+	P_ProjectSource(ent->client, ent->s.origin,
+		offset, forward, right, start);
+
+	VectorScale(forward, -3, ent->client->kick_origin);
+	ent->client->kick_angles[0] = -2;
+
+	fire_hammer(ent, start, forward, damage, HAMMER_KICK);
+}
+void Weapon_Hammer_Fire(edict_t* ent)
+{
+	int damage;
+
+	if (deathmatch->value)
+		damage = HAMMER_DEATHMATCH_DAMAGE;
+	else
+		damage = HAMMER_NORMAL_DAMAGE;
+
+	hammer_attack(ent, vec3_origin, damage);
+
+	ent->client->ps.gunframe++;
+	ApplyShootKick(ent);
+}
+void Weapon_Hammer(edict_t* ent)
+{
+	static int pause_frames[] = { 20, 40, 55, 0 };  // longer pauses between swings
+	static int fire_frames[] = { 8, 0 };  // slower swing animation
+
+	Weapon_Generic(ent, 6, 20, 36, 39, pause_frames, fire_frames, Weapon_Hammer_Fire);
+}
+
+
+
 
 
 

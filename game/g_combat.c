@@ -123,7 +123,31 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 	}
 
 	targ->die (targ, inflictor, attacker, damage, point);
+	if (attacker && attacker->client && targ != attacker)
+	{
+		// Increment kill count once
+		attacker->client->kill_count++;
+
+		// Add 5 HP per kill
+		attacker->health += 5;
+		attacker->max_health = attacker->health;
+
+		// Unlock double jump at 5 kills
+		if (attacker->client->kill_count >= 5)
+			attacker->client->can_double_jump = true;
+
+		// Display power-up message
+		gi.cprintf(attacker, PRINT_HIGH,
+			"POWER UP! Kills: %d | Health: %d\n",
+			attacker->client->kill_count,
+			attacker->health
+		);
+	}
+
+
+
 }
+
 
 
 /*

@@ -615,6 +615,9 @@ void InitClientPersistant (gclient_t *client)
 	item = FindItem("Sword");
 	client->pers.inventory[ITEM_INDEX(item)] = 1;
 
+	item = FindItem("Hammer");
+	client->pers.inventory[ITEM_INDEX(item)] = 1;
+
 	item = FindItem("Blaster");
 	client->pers.selected_item = ITEM_INDEX(item);
 	client->pers.inventory[client->pers.selected_item] = 1;
@@ -1110,6 +1113,18 @@ void PutClientInServer (edict_t *ent)
 	client_persistant_t	saved;
 	client_respawn_t	resp;
 
+	ent->client->kill_count = 0;
+	ent->client->speed_mult = 1.0f;
+	ent->client->base_speed = 300;  // standard Q2 run speed
+	ent->client->health_mult = 1.0f;
+
+	ent->client->can_double_jump = false;
+	ent->client->has_double_jumped = false;
+	ent->client->was_on_ground = true;
+	
+	ent->client->showhelp_page = 1;
+
+
 	// find a spawn point
 	// do it before setting health back up, so farthest
 	// ranging doesn't count this client
@@ -1304,6 +1319,8 @@ void ClientBegin (edict_t *ent)
 
 	ent->client = game.clients + (ent - g_edicts - 1);
 
+
+
 	if (deathmatch->value)
 	{
 		ClientBeginDeathmatch (ent);
@@ -1349,6 +1366,7 @@ void ClientBegin (edict_t *ent)
 			gi.bprintf (PRINT_HIGH, "%s entered the game\n", ent->client->pers.netname);
 		}
 	}
+
 
 	// make sure all view stuff is valid
 	ClientEndServerFrame (ent);
@@ -1574,6 +1592,8 @@ usually be a couple times for each server frame.
 */
 void ClientThink(edict_t* ent, usercmd_t* ucmd)
 {
+
+
 	gclient_t* client;
 	edict_t* other;
 	int		i, j;
@@ -1581,6 +1601,22 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 
 	level.current_entity = ent;
 	client = ent->client;
+
+
+	// Reset double jump when landing
+	if (ent->groundentity)
+	{
+		if (!client->was_on_ground) // just landed
+		{
+			client->has_double_jumped = false;
+		}
+		client->was_on_ground = true;
+	}
+	else
+	{
+		client->was_on_ground = false;
+	}
+
 
 	if (level.intermissiontime)
 	{
@@ -1631,6 +1667,7 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 		}
 
 		pm.cmd = *ucmd;
+
 
 		pm.trace = PM_trace;	// adds default parms
 		pm.pointcontents = gi.pointcontents;
@@ -1697,7 +1734,30 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 			if (!other->touch)
 				continue;
 			other->touch(other, ent, NULL, NULL);
+			other->touch(other, ent, NULL, NULL);
 		}
+		if (!(client->ps.pmove.pm_flags & PMF_JUMP_HELD) && (ucmd->upmove >= 10))
+		{
+			if (!ent->groundentity) // player is in the air
+			{
+				// Check if they can double jump
+				if (client->can_double_jump && !client->has_double_jumped)
+				{
+					// Apply upward velocity for double jump
+					ent->velocity[2] = 270; // tweak for jump strength
+
+					// Optional: add small forward boost
+					vec3_t forward;
+					AngleVectors(client->v_angle, forward, NULL, NULL);
+					ent->velocity[0] += forward[0] * 50;
+					ent->velocity[1] += forward[1] * 50;
+
+					client->has_double_jumped = true;
+					gi.sound(ent, CHAN_VOICE, gi.soundindex("misc/jump1.wav"), 1, ATTN_NORM, 0);
+				}
+			}
+		}
+
 
 	}
 
@@ -1750,6 +1810,17 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 		if (other->inuse && other->client->chase_target == ent)
 			UpdateChaseCam(other);
 	}
+	// Toggle help screen with INVENTORY key
+	if (client->latched_buttons & BUTTON_USE)
+	{
+		client->show_help = !client->show_help;
+
+		if (client->show_help)
+			client->showscores = true;
+		else
+			client->showscores = false;
+	}
+
 }
 	
 

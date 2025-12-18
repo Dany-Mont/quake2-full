@@ -230,6 +230,8 @@ typedef struct
 #define WEAP_HYPERBLASTER		9 
 #define WEAP_RAILGUN			10
 #define WEAP_BFG				11
+#define WEAP_SWORD				12
+#define WEAP_HAMMER				13
 
 typedef struct gitem_s
 {
@@ -862,8 +864,10 @@ typedef struct
 	int			helpchanged;
 
 	qboolean	spectator;			// client is a spectator
-	qboolean    canDoubleJump;       // client can double jump
-	qboolean    doubleJumped;        // client has double jumped
+	qboolean    can_double_jump;       // client can double jump
+	qboolean    has_double_jumped;        // client has double jumped
+
+
 
 } client_persistant_t;
 
@@ -895,6 +899,21 @@ struct gclient_s
 	qboolean	showinventory;		// set layout stat
 	qboolean	showhelp;
 	qboolean	showhelpicon;
+
+	int kill_count;        // total kills
+	float speed_mult;      // multiplier for player movement
+	float base_speed;      // the player’s normal movement speed
+	float health_mult;     // multiplier for health
+
+	qboolean can_double_jump;  // true if player has unlocked double jump
+	qboolean has_double_jumped; // true if player has used double jump in current air
+	qboolean was_on_ground;
+
+
+	qboolean show_help;
+	int showhelp_page; // 1 = first page, 2 = second page
+
+
 
 	int			ammo_index;
 

@@ -29,6 +29,47 @@ INTERMISSION
 ======================================================================
 */
 
+//Custom help screen
+// Send a single line safely
+
+void ModHelpScreenPage1(edict_t* ent)
+{
+	char string[1024];
+
+	Com_sprintf(string, sizeof(string),
+		"xv 40 yv 20 string \"MELEE MAYHEM - HELP 1\" "
+		"xv 40 yv 40 string \"Goal: Kill enemies and grow stronger\" "
+		"xv 40 yv 70 string \"Abilities:\" "
+		"xv 60 yv 90 string \"- Double Jump (5 kills)\" "
+		"xv 60 yv 105 string \"- Weapon Dash / Boost\" "
+		"xv 40 yv 135 string \"Press H for next page\" "
+	);
+
+	gi.WriteByte(svc_layout);
+	gi.WriteString(string);
+	gi.unicast(ent, true);
+}
+
+void ModHelpScreenPage2(edict_t* ent)
+{
+	char string[1024];
+
+	Com_sprintf(string, sizeof(string),
+		"xv 40 yv 20 string \"MELEE MAYHEM - HELP 2\" "
+		"xv 40 yv 40 string \"RPG SYSTEM:\" "
+		"xv 60 yv 60 string \"- Gain +5 health per kill\" "
+		"xv 60 yv 75 string \"- Unlock abilities at milestones\" "
+		"xv 40 yv 105 string \"Controls:\" "
+		"xv 60 yv 120 string \"- ATTACK: Melee strike\" "
+		"xv 60 yv 135 string \"- JUMP: Jump / Double Jump\" "
+		"xv 60 yv 150 string \"- INVENTORY: Toggle this help screen\" "
+		"xv 40 yv 180 string \"Press H to return to page 1\" "
+	);
+
+	gi.WriteByte(svc_layout);
+	gi.WriteString(string);
+	gi.unicast(ent, true);
+}
 void MoveClientToIntermission (edict_t *ent)
 {
 	if (deathmatch->value || coop->value)
@@ -343,30 +384,24 @@ Cmd_Help_f
 Display the current help message
 ==================
 */
-void Cmd_Help_f (edict_t *ent)
+void Cmd_Help_f(edict_t* ent)
 {
-	// this is for backwards compatability
-	if (deathmatch->value)
-	{
-		Cmd_Score_f (ent);
+	if (!ent->client)
 		return;
-	}
 
-	ent->client->showinventory = false;
-	ent->client->showscores = false;
-
-	if (ent->client->showhelp && (ent->client->pers.game_helpchanged == game.helpchanged))
-	{
-		ent->client->showhelp = false;
-		return;
-	}
+	// Toggle page
+	ent->client->showhelp_page++;
+	if (ent->client->showhelp_page > 2)
+		ent->client->showhelp_page = 1;
 
 	ent->client->showhelp = true;
-	ent->client->pers.helpchanged = 0;
-	HelpComputer (ent);
+
+	// Show the current page
+	if (ent->client->showhelp_page == 1)
+		ModHelpScreenPage1(ent);
+	else
+		ModHelpScreenPage2(ent);
 }
-
-
 //=======================================================================
 
 /*
@@ -511,15 +546,21 @@ void G_SetStats (edict_t *ent)
 	//
 	// help icon / current weapon if not shown
 	//
-	if (ent->client->pers.helpchanged && (level.framenum&8) )
-		ent->client->ps.stats[STAT_HELPICON] = gi.imageindex ("i_help");
-	else if ( (ent->client->pers.hand == CENTER_HANDED || ent->client->ps.fov > 91)
-		&& ent->client->pers.weapon)
-		ent->client->ps.stats[STAT_HELPICON] = gi.imageindex (ent->client->pers.weapon->icon);
-	else
-		ent->client->ps.stats[STAT_HELPICON] = 0;
+	ent->client->ps.stats[STAT_HELPICON] = 0;
 
 	ent->client->ps.stats[STAT_SPECTATOR] = 0;
+	if (ent->client->showhelp)
+	{
+		ent->client->ps.stats[STAT_LAYOUTS] = 1;
+
+		if (ent->client->showhelp_page == 1)
+			ModHelpScreenPage1(ent);
+		else
+			ModHelpScreenPage2(ent);
+
+		return;
+	}
+
 }
 
 /*
@@ -568,4 +609,5 @@ void G_SetSpectatorStats (edict_t *ent)
 	else
 		cl->ps.stats[STAT_CHASE] = 0;
 }
+
 
