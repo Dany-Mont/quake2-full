@@ -610,8 +610,12 @@ void InitClientPersistant (gclient_t *client)
 
 	memset (&client->pers, 0, sizeof(client->pers));
 
+	item = FindItem("Poison Sword");
+	client->pers.inventory[ITEM_INDEX(item)] = 1;
 
-
+	item = FindItem("Fast Sword");
+	client->pers.inventory[ITEM_INDEX(item)] = 1;
+	
 	item = FindItem("Sword");
 	client->pers.inventory[ITEM_INDEX(item)] = 1;
 
@@ -1121,6 +1125,8 @@ void PutClientInServer (edict_t *ent)
 	ent->client->can_double_jump = false;
 	ent->client->has_double_jumped = false;
 	ent->client->was_on_ground = true;
+	ent->client->can_slide = false;
+	ent->client->sliding = false;
 	
 	ent->client->showhelp_page = 1;
 
@@ -1602,6 +1608,7 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 	level.current_entity = ent;
 	client = ent->client;
 
+	ent->client->crouched = (ent->client->ps.pmove.pm_flags & PMF_DUCKED) ? true : false;
 
 	// Reset double jump when landing
 	if (ent->groundentity)
@@ -1616,6 +1623,17 @@ void ClientThink(edict_t* ent, usercmd_t* ucmd)
 	{
 		client->was_on_ground = false;
 	}
+	if (ent->client->dashing)
+	{
+		ent->client->invulnerable -= FRAMETIME;
+		if (ent->client->invulnerable <= 0)
+		{
+			ent->client->dashing = false;
+			ent->client->invulnerable = 0;
+		}
+	}
+
+
 
 
 	if (level.intermissiontime)

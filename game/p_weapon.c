@@ -1549,7 +1549,7 @@ void Weapon_Sword_Fire(edict_t* ent)
 		damage = SWORD_NORMAL_DAMAGE;
 	sword_attack(ent, vec3_origin, damage);
 	ent->client->ps.gunframe++;
-	ApplyShootKick(ent);
+	
 }
 
 void Weapon_Sword(edict_t* ent)
@@ -1682,10 +1682,197 @@ void Weapon_Hammer(edict_t* ent)
 
 	Weapon_Generic(ent, 6, 20, 36, 39, pause_frames, fire_frames, Weapon_Hammer_Fire);
 }
+//====================
+// Fast Sword
+//====================
+#define FAST_SWORD_NORMAL_DAMAGE      15
+#define FAST_SWORD_DEATHMATCH_DAMAGE  75
+#define FAST_SWORD_KICK               300
+#define FAST_SWORD_RANGE              64  // melee range
+
+void fire_fast_sword(edict_t* self, vec3_t start, vec3_t aimdir, int damage, int kick)
+{
+	trace_t tr;
+	vec3_t end;
+
+	VectorMA(start, FAST_SWORD_RANGE, aimdir, end);
+	tr = gi.trace(start, NULL, NULL, end, self, MASK_SHOT);
+
+	if ((tr.surface) && (tr.surface->flags & SURF_SKY))
+		return;
+
+	if (tr.ent->takedamage)
+	{
+		T_Damage(tr.ent, self, self,
+			aimdir, tr.endpos, tr.plane.normal,
+			damage, kick, 0, MOD_HIT);
+	}
+	else if (tr.fraction < 1.0)
+	{
+		// Hit a wall or other solid
+		gi.WriteByte(svc_temp_entity);
+		gi.WriteByte(TE_GUNSHOT);
+		gi.WritePosition(tr.endpos);
+		gi.WriteDir(tr.plane.normal);
+		gi.multicast(tr.endpos, MULTICAST_PVS);
+
+		if (self->client)
+			PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+	}
+}
+
+void fast_sword_attack(edict_t* ent, vec3_t g_offset, int damage)
+{
+	vec3_t forward, right, start, offset;
+
+	if (is_quad)
+		damage *= 4;
+
+	AngleVectors(ent->client->v_angle, forward, right, NULL);
+
+	VectorSet(offset, 28, 8, ent->viewheight - 8); // slightly forward
+	VectorAdd(offset, g_offset, offset);
+
+	P_ProjectSource(ent->client, ent->s.origin, offset, forward, right, start);
+
+	VectorScale(forward, -2, ent->client->kick_origin);
+	ent->client->kick_angles[0] = -1;
+
+	fire_fast_sword(ent, start, forward, damage, FAST_SWORD_KICK);
+}
+
+void Weapon_FastSword_Fire(edict_t* ent)
+{
+	int damage;
+
+	if (deathmatch->value)
+		damage = FAST_SWORD_DEATHMATCH_DAMAGE;
+	else
+		damage = FAST_SWORD_NORMAL_DAMAGE;
+
+	fast_sword_attack(ent, vec3_origin, damage);
+	ent->client->ps.gunframe++;
+	ApplyShootKick(ent);
+}
+
+void Weapon_FastSword(edict_t* ent)
+{
+	static int pause_frames[] = { 15, 25, 0 };
+	static int fire_frames[] = { 5, 0 };
+
+	Weapon_Generic(ent, 3, 12, 45, 49, pause_frames, fire_frames, Weapon_FastSword_Fire);
+}
 
 
 
+//====================
+// Poison Sword
+//====================
+//====================
+// Poison Sword
+//====================
+#define POISON_SWORD_DAMAGE       1
+#define POISON_SWORD_KICK         400
+#define POISON_DAMAGE_PER_SEC     50
+#define POISON_DURATION           1   // seconds
+#define POISON_TICKS_PER_SEC      10  // Quake 2 runs at 10 ticks/sec
+#define POISON_SWORD_RANGE 90  // same as sword or hammer range
+
+// Apply poison effect to monsters
+void ApplyPoison(edict_t* target, edict_t* attacker)
+{
+	if (!target || !target->takedamage || !(target->svflags & SVF_MONSTER))
+		return;
+
+	target->poisoned = POISON_DURATION * POISON_TICKS_PER_SEC;
+	target->poison_damage = POISON_DAMAGE_PER_SEC / POISON_TICKS_PER_SEC;
+	target->poison_nexttick = level.time + 0.1f;
+	target->poison_attacker = attacker;
+}
 
 
+// Fires the Poison Sword
+void FirePoisonSword(edict_t* self, vec3_t start, vec3_t aimdir, int damage, int kick)
+{
+	trace_t tr;
+	vec3_t dir, forward, right, up, end;
 
-//======================================================================
+	VectorMA(start, POISON_SWORD_RANGE, aimdir, end);
+	tr = gi.trace(start, NULL, NULL, end, self, MASK_SHOT);
+
+
+	// Setup vectors if trace didn’t hit anything
+	if (!(tr.fraction < 1.0))
+	{
+		vectoangles(aimdir, dir);
+		AngleVectors(dir, forward, right, up);
+		VectorMA(start, POISON_SWORD_RANGE, aimdir, end);
+
+	}
+
+	// Don’t hit the sky
+	if (!((tr.surface) && (tr.surface->flags & SURF_SKY)))
+	{
+		if (tr.fraction < 1.0 && tr.ent->takedamage)
+		{
+			// Direct damage
+			T_Damage(tr.ent, self, self, aimdir, tr.endpos, tr.plane.normal,
+				damage, kick, 0, MOD_POISON);
+
+			// Apply poison over time
+			ApplyPoison(tr.ent, self);
+
+		}
+		else if (tr.fraction < 1.0)
+		{
+			// Hit wall effect
+			gi.WriteByte(svc_temp_entity);
+			gi.WriteByte(TE_GUNSHOT);
+			gi.WritePosition(tr.endpos);
+			gi.WriteDir(tr.plane.normal);
+			gi.multicast(tr.endpos, MULTICAST_PVS);
+
+			if (self->client)
+				PlayerNoise(self, tr.endpos, PNOISE_IMPACT);
+		}
+	}
+}
+
+// Sword attack logic
+void PoisonSwordAttack(edict_t* ent, vec3_t g_offset, int damage)
+{
+	vec3_t forward, right, start, offset;
+
+	AngleVectors(ent->client->v_angle, forward, right, NULL);
+	VectorSet(offset, 24, 8, ent->viewheight - 8);
+	VectorAdd(offset, g_offset, offset);
+	P_ProjectSource(ent->client, ent->s.origin, offset, forward, right, start);
+
+	VectorScale(forward, -2, ent->client->kick_origin);
+	ent->client->kick_angles[0] = -1;
+
+	FirePoisonSword(ent, start, forward, damage, POISON_SWORD_KICK);
+}
+
+// Weapon firing function
+void Weapon_PoisonSword_Fire(edict_t* ent)
+{
+	int damage = POISON_SWORD_DAMAGE;
+
+	if (deathmatch->value)
+		damage = 75;  // Optional: higher for deathmatch
+
+	PoisonSwordAttack(ent, vec3_origin, damage);
+
+	ent->client->ps.gunframe++;
+	ApplyShootKick(ent);
+}
+
+// Weapon definition
+void Weapon_PoisonSword(edict_t* ent)
+{
+	static int pause_frames[] = { 20, 35, 0 };
+	static int fire_frames[] = { 5, 0 };
+	Weapon_Generic(ent, 3, 18, 56, 61, pause_frames, fire_frames, Weapon_PoisonSword_Fire);
+}
+

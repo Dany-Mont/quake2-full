@@ -456,7 +456,8 @@ typedef struct
 
 
 
-// pmove_state_t is the information necessary for client side movement
+// 
+// _state_t is the information necessary for client side movement
 // prediction
 typedef enum 
 {

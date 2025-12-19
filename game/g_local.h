@@ -181,6 +181,17 @@ typedef enum
 #define PNOISE_WEAPON			1
 #define PNOISE_IMPACT			2
 
+#define MOD_POISON  50
+
+// Slide settings
+#define SLIDE_MIN_SPEED 200.0f    // Minimum horizontal speed to start sliding
+#define SLIDE_BOOST     150.0f    // Initial impulse applied when sliding starts
+#define SLIDE_FRICTION  0.8f      // Friction multiplier while sliding (0..1)
+#define SLIDE_STOP_SPEED 150.0f   // Speed below which sliding stops
+
+
+#define DASH_SPEED 250        // speed applied when dashing (adjust as needed)
+#define DASH_INVUL_TIME 0.5f 
 
 // edict->movetype values
 typedef enum
@@ -232,6 +243,9 @@ typedef struct
 #define WEAP_BFG				11
 #define WEAP_SWORD				12
 #define WEAP_HAMMER				13
+#define WEAP_FASTSWORD			14
+#define WEAP_POSIONSWORD		15
+
 
 typedef struct gitem_s
 {
@@ -336,6 +350,8 @@ typedef struct
 	int			total_monsters;
 	int			killed_monsters;
 
+	
+	
 	edict_t		*current_entity;	// entity running from G_RunFrame
 	int			body_que;			// dead bodies
 
@@ -562,6 +578,7 @@ extern	cvar_t	*sv_maplist;
 #define DROPPED_ITEM			0x00010000
 #define	DROPPED_PLAYER_ITEM		0x00020000
 #define ITEM_TARGETS_USED		0x00040000
+#define FL_INVULNERABLE 0x20000000
 
 //
 // fields are needed for spawning from the entity string
@@ -569,6 +586,11 @@ extern	cvar_t	*sv_maplist;
 //
 #define FFL_SPAWNTEMP		1
 #define FFL_NOSPAWN			2
+
+
+#define BUTTON_Q (1<<25) // pick unused bits
+#define BUTTON_E (1<<26)
+
 
 typedef enum {
 	F_INT, 
@@ -603,6 +625,8 @@ extern	gitem_t	itemlist[];
 //
 void Cmd_Help_f (edict_t *ent);
 void Cmd_Score_f (edict_t *ent);
+void Cmd_DashLeft(edict_t* ent);
+void Cmd_DashRight(edict_t* ent);
 
 //
 // g_items.c
@@ -900,14 +924,29 @@ struct gclient_s
 	qboolean	showhelp;
 	qboolean	showhelpicon;
 
+	int poison_framenum;
+
 	int kill_count;        // total kills
 	float speed_mult;      // multiplier for player movement
 	float base_speed;      // the player’s normal movement speed
 	float health_mult;     // multiplier for health
 
+
+	//movement related
 	qboolean can_double_jump;  // true if player has unlocked double jump
 	qboolean has_double_jumped; // true if player has used double jump in current air
 	qboolean was_on_ground;
+	qboolean can_slide;           // true if player can slide
+	float slide_time;
+	qboolean sliding;
+	qboolean crouched;
+	qboolean dashing;      // is player currently dashing
+	float dash_endtime;     // when the dash ends
+	int dash_direction;     // -1 = left, 1 = right
+	float dash_cooldown;    // optional: prevents spam   
+	qboolean invulnerable;
+	float invulnerable_time;
+
 
 
 	qboolean show_help;
@@ -1133,5 +1172,11 @@ struct edict_s
 	// common data blocks
 	moveinfo_t		moveinfo;
 	monsterinfo_t	monsterinfo;
+
+	int poison_framenum;
+	int poisoned;
+	int poison_damage;
+	float poison_nexttick;
+	edict_t* poison_attacker;
 };
 

@@ -37,6 +37,8 @@ void Weapon_Railgun (edict_t *ent);
 void Weapon_BFG (edict_t *ent);
 void Weapon_Sword(edict_t* ent);
 void Weapon_Hammer(edict_t* ent);
+void Weapon_PoisonSword(edict_t* ent);
+void Weapon_FastSword(edict_t* ent);
 
 gitem_armor_t jacketarmor_info	= { 25,  50, .30, .00, ARMOR_JACKET};
 gitem_armor_t combatarmor_info	= { 50, 100, .60, .30, ARMOR_COMBAT};
@@ -1585,6 +1587,49 @@ always owned, never in the world
 	NULL,                           
 	0,                               
 	"weapons/blastf1a.wav misc/lasfly.wav"
+},
+// Fast Sword (uses Machinegun model/icon)
+{
+	"weapon_fast_sword",
+	NULL,
+	Use_Weapon,
+	NULL,
+	Weapon_FastSword,
+	"misc/w_pkup.wav",
+	NULL,
+	0,
+	"models/weapons/v_machn/tris.md2", 
+	"w_machinegun",                         
+	"Fast Sword",
+	0,
+	0,
+	NULL,
+	IT_WEAPON,
+	NULL,
+	0,
+	"weapons/machgf1a.wav"                   // Existing sound
+},
+
+// Poison Sword (uses Railgun model/icon)
+{
+	"weapon_poison_sword",
+	NULL,
+	Use_Weapon,
+	NULL,
+	Weapon_PoisonSword,
+	"misc/w_pkup.wav",
+	NULL,
+	0,
+	"models/weapons/v_rail/tris.md2",     // Existing model
+	"w_railgun",                             // Existing icon
+	"Poison Sword",
+	0,
+	0,
+	NULL,
+	IT_WEAPON,
+	NULL,
+	0,
+	"weapons/railgf1a.wav"                   // Existing sound
 },
 
 

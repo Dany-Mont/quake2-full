@@ -788,6 +788,10 @@ FIXME: is this true?
 #define sv_friction			6
 #define sv_waterfriction	1
 
+#define SLIDE_MIN_SPEED   300
+#define SLIDE_FRICTION    .2f   // lower = longer slide
+#define SLIDE_BOOST       400
+
 void SV_AddRotationalFriction (edict_t *ent)
 {
 	int		n;
@@ -812,43 +816,43 @@ void SV_AddRotationalFriction (edict_t *ent)
 	}
 }
 
-void SV_Physics_Step (edict_t *ent)
+void SV_Physics_Step(edict_t* ent)
 {
 	qboolean	wasonground;
 	qboolean	hitsound = false;
-	float		*vel;
+	float* vel;
 	float		speed, newspeed, control;
 	float		friction;
-	edict_t		*groundentity;
+	edict_t* groundentity;
 	int			mask;
 
 	// airborn monsters should always check for ground
 	if (!ent->groundentity)
-		M_CheckGround (ent);
+		M_CheckGround(ent);
 
 	groundentity = ent->groundentity;
 
-	SV_CheckVelocity (ent);
+	SV_CheckVelocity(ent);
 
 	if (groundentity)
 		wasonground = true;
 	else
 		wasonground = false;
-		
+
 	if (ent->avelocity[0] || ent->avelocity[1] || ent->avelocity[2])
-		SV_AddRotationalFriction (ent);
+		SV_AddRotationalFriction(ent);
 
 	// add gravity except:
 	//   flying monsters
 	//   swimming monsters who are in the water
-	if (! wasonground)
+	if (!wasonground)
 		if (!(ent->flags & FL_FLY))
 			if (!((ent->flags & FL_SWIM) && (ent->waterlevel > 2)))
 			{
-				if (ent->velocity[2] < sv_gravity->value*-0.1)
+				if (ent->velocity[2] < sv_gravity->value * -0.1)
 					hitsound = true;
 				if (ent->waterlevel == 0)
-					SV_AddGravity (ent);
+					SV_AddGravity(ent);
 			}
 
 	// friction for flying monsters that have been given vertical velocity
@@ -856,7 +860,7 @@ void SV_Physics_Step (edict_t *ent)
 	{
 		speed = fabs(ent->velocity[2]);
 		control = speed < sv_stopspeed ? sv_stopspeed : speed;
-		friction = sv_friction/3;
+		friction = sv_friction / 3;
 		newspeed = speed - (FRAMETIME * control * friction);
 		if (newspeed < 0)
 			newspeed = 0;
@@ -879,45 +883,98 @@ void SV_Physics_Step (edict_t *ent)
 	if (ent->velocity[2] || ent->velocity[1] || ent->velocity[0])
 	{
 		// apply friction
-		// let dead monsters who aren't completely onground slide
-		if ((wasonground) || (ent->flags & (FL_SWIM|FL_FLY)))
+		if ((wasonground) || (ent->flags & (FL_SWIM | FL_FLY)))
 			if (!(ent->health <= 0.0 && !M_CheckBottom(ent)))
 			{
-				vel = ent->velocity;
-				speed = sqrt(vel[0]*vel[0] +vel[1]*vel[1]);
-				if (speed)
+				if (ent->svflags & SVF_MONSTER)
+					mask = MASK_MONSTERSOLID;
+				else
+					mask = MASK_SOLID;
+				SV_FlyMove(ent, FRAMETIME, mask);
+
+				// =========================
+				// PLAYER SLIDE (GROUND ONLY)    
+				// =========================
+				if (ent->client && ent->groundentity && ent->client->can_slide)
 				{
-					friction = sv_friction;
+					vec3_t hvel;
+					float hspeed;
 
-					control = speed < sv_stopspeed ? sv_stopspeed : speed;
-					newspeed = speed - FRAMETIME*control*friction;
+					// horizontal velocity
+					VectorSet(hvel, ent->velocity[0], ent->velocity[1], 0);
+					hspeed = VectorLength(hvel);
 
-					if (newspeed < 0)
-						newspeed = 0;
-					newspeed /= speed;
+					// START sliding
+					if (!ent->client->sliding &&
+						(ent->client->crouched) &&
+						hspeed > SLIDE_MIN_SPEED)
+					{
+						vec3_t forward;
+						AngleVectors(ent->client->v_angle, forward, NULL, NULL);
 
-					vel[0] *= newspeed;
-					vel[1] *= newspeed;
+						// Apply one-time forward impulse
+						VectorMA(ent->velocity, SLIDE_BOOST, forward, ent->velocity);
+
+						ent->client->sliding = true;
+					}
+
+					// STOP sliding
+					if (ent->client->sliding)
+					{
+						VectorSet(hvel, ent->velocity[0], ent->velocity[1], 0);
+						hspeed = VectorLength(hvel);
+
+						if (!(ent->client->crouched) ||
+							!ent->groundentity ||
+							hspeed < SLIDE_STOP_SPEED)
+						{
+							ent->client->sliding = false;
+						}
+					}
+
+					// APPLY friction while sliding
+					if (ent->client->sliding)
+					{
+						ent->velocity[0] *= SLIDE_FRICTION;
+						ent->velocity[1] *= SLIDE_FRICTION;
+					}
 				}
+
+
+				else
+				{
+					// Normal friction for non-sliding
+					vec3_t vel;
+					VectorCopy(ent->velocity, vel);
+
+					float speed = sqrt(vel[0] * vel[0] + vel[1] * vel[1]);
+					if (speed)
+					{
+						float friction = sv_friction;
+						float control = speed < sv_stopspeed ? sv_stopspeed : speed;
+						float newspeed = speed - FRAMETIME * control * friction;
+						if (newspeed < 0) newspeed = 0;
+						newspeed /= speed;
+
+						vel[0] *= newspeed;
+						vel[1] *= newspeed;
+						VectorCopy(vel, ent->velocity);
+					}
+				}
+
+				gi.linkentity(ent);
+				G_TouchTriggers(ent);
+				if (!ent->inuse)
+					return;
+
+				if (ent->groundentity)
+					if (!wasonground)
+						if (hitsound)
+							gi.sound(ent, 0, gi.soundindex("world/land.wav"), 1, 1, 0);
 			}
-
-		if (ent->svflags & SVF_MONSTER)
-			mask = MASK_MONSTERSOLID;
-		else
-			mask = MASK_SOLID;
-		SV_FlyMove (ent, FRAMETIME, mask);
-
-		gi.linkentity (ent);
-		G_TouchTriggers (ent);
-		if (!ent->inuse)
-			return;
-
-		if (ent->groundentity)
-			if (!wasonground)
-				if (hitsound)
-					gi.sound (ent, 0, gi.soundindex("world/land.wav"), 1, 1, 0);
 	}
 
+			
 // regular thinking
 	SV_RunThink (ent);
 }
@@ -933,7 +990,25 @@ void G_RunEntity (edict_t *ent)
 {
 	if (ent->prethink)
 		ent->prethink (ent);
+	if (ent->poisoned > 0 && ent->health > 0)
+	{
+		if (level.time >= ent->poison_nexttick)
+		{
+			T_Damage(ent,
+				ent->poison_attacker,
+				ent->poison_attacker,
+				vec3_origin,
+				ent->s.origin,
+				vec3_origin,
+				ent->poison_damage,
+				0,
+				DAMAGE_NO_KNOCKBACK | DAMAGE_NO_ARMOR,
+				MOD_POISON);
 
+			ent->poisoned--;
+			ent->poison_nexttick = level.time + 0.1f;
+		}
+	}
 	switch ( (int)ent->movetype)
 	{
 	case MOVETYPE_PUSH:

@@ -136,6 +136,8 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 		if (attacker->client->kill_count >= 5)
 			attacker->client->can_double_jump = true;
 
+		if (attacker->client->kill_count >= 10)
+			attacker->client->can_slide = true;
 		// Display power-up message
 		gi.cprintf(attacker, PRINT_HIGH,
 			"POWER UP! Kills: %d | Health: %d\n",
@@ -148,6 +150,29 @@ void Killed (edict_t *targ, edict_t *inflictor, edict_t *attacker, int damage, v
 
 }
 
+void TryDash(edict_t* ent, int direction)
+{
+	// Already dashing or on cooldown? Ignore
+	if (ent->client->dashing || (ent->client->dash_cooldown > level.time))
+		return;
+
+	vec3_t right;
+	AngleVectors(ent->client->v_angle, NULL, right, NULL);
+
+	// Apply dash sideways
+	if (direction == -1)
+		VectorScale(right, -1, right); // dash left
+	VectorMA(ent->velocity, 400, right, ent->velocity); // 400 = dash speed
+
+	// Set dash state
+	ent->client->dashing = true;
+	ent->client->dash_direction = direction;
+	ent->client->dash_endtime = level.time + 0.3; // 0.3 seconds dash
+	ent->flags |= FL_INVULNERABLE;
+
+	// Optional: set cooldown (0.5s after dash)
+	ent->client->dash_cooldown = level.time + 0.5;
+}
 
 
 /*

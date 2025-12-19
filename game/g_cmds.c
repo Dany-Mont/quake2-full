@@ -898,7 +898,35 @@ void Cmd_PlayerList_f(edict_t *ent)
 	}
 	gi.cprintf(ent, PRINT_HIGH, "%s", text);
 }
+void Cmd_DashLeft(edict_t* ent)
+{
+	if (!ent->client)
+		return;
 
+	vec3_t right;
+	AngleVectors(ent->client->v_angle, NULL, right, NULL);
+
+	VectorScale(right, -DASH_SPEED, right); // left dash
+	VectorAdd(ent->velocity, right, ent->velocity);
+
+	ent->client->invulnerable = true;
+	ent->client->invulnerable_time = level.time + DASH_INVUL_TIME;
+}
+
+void Cmd_DashRight(edict_t* ent)
+{
+	if (!ent->client)
+		return;
+
+	vec3_t right;
+	AngleVectors(ent->client->v_angle, NULL, right, NULL);
+
+	VectorScale(right, DASH_SPEED, right); // right dash
+	VectorAdd(ent->velocity, right, ent->velocity);
+
+	ent->client->invulnerable = true;
+	ent->client->invulnerable_time = level.time + DASH_INVUL_TIME;
+}
 
 /*
 =================
@@ -939,6 +967,22 @@ void ClientCommand (edict_t *ent)
 		Cmd_Help_f (ent);
 		return;
 	}
+
+	if (!ent->client)
+		return;
+
+	if (Q_stricmp(cmd, "dashleft") == 0)
+	{
+		Cmd_DashLeft(ent);
+		return;
+	}
+
+	if (Q_stricmp(cmd, "dashright") == 0)
+	{
+		Cmd_DashRight(ent);
+		return;
+	}
+
 
 	if (level.intermissiontime)
 		return;
