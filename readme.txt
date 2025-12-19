@@ -1,29 +1,21 @@
+# Quake II Melee Mayhem Mod
 
-This is the complete source code for Quake 2, version 3.19, buildable with
-visual C++ 6.0.  The linux version should be buildable, but we haven't
-tested it for the release.
+This is a custom gameplay mod for Quake II that adds new mechanics such as:
+- Custom melee weapons (e.g. poison / DoT weapons)
+- Advanced movement abilities (dash, double jump, momentum-based movement)
+- Ability unlocks tied to kill count
+- Experimental combat and traversal features
 
-The code is all licensed under the terms of the GPL (gnu public license).  
-You should read the entire license, but the gist of it is that you can do 
-anything you want with the code, including sell your new version.  The catch 
-is that if you distribute new binary versions, you are required to make the 
-entire source code available for free to everyone.
+## Installation
 
-The primary intent of this release is for entertainment and educational 
-purposes, but the GPL does allow commercial exploitation if you obey the 
-full license.  If you want to do something commercial and you just can't bear 
-to have your source changes released, we could still negotiate a separate 
-license agreement (for $$$), but I would encourage you to just live with the 
-GPL.
+1. Download the Git repository
+2. Open the Melee Mayhem folder
+3. launch the Quake2 Shortcut
 
-All of the Q2 data files remain copyrighted and licensed under the 
-original terms, so you cannot redistribute data from the original game, but if 
-you do a true total conversion, you can create a standalone game based on 
-this code.
 
-Thanks to Robert Duffy for doing the grunt work of building this release.
+## Testing
+to try the movement abilities, go into the p_client.c file and change the state of can_slide, can_double_jump, and can_dash to be  true
 
-John Carmack
-Id Software
+Once in game, enable god mode by typing god in the console and cycling through your weapons
 
 
